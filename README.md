@@ -1,21 +1,71 @@
-# Smark Mart Mobile
+# Smark Mart — Flutter Customer App
 
-End-user Android app. No signup form. Firebase Anonymous Auth is created automatically in the background.
+Fresh Flutter customer application for the Smark Mart workflow.
 
-## Firebase setup later
-1. Firebase Console -> Authentication -> Sign-in method -> enable Anonymous.
-2. Create a Firebase Web App and copy its public config into `.env` (see `.env.example`).
-3. Set `EXPO_PUBLIC_API_BASE_URL` to the deployed Next.js web/backend URL.
+## Production flow
 
-## Local run
+1. App starts and Firebase signs the device in anonymously in the background.
+2. Customer scans a trolley QR.
+3. Customer scans products or enters a product code/barcode manually.
+4. Cart supports quantity + / - and removal by setting quantity to zero.
+5. Checkout supports Cash / UPI / QR.
+6. Backend creates a payment-pending order.
+7. Admin confirms payment on the separate Next.js web console.
+8. Dispatch validates the paid order and releases the trolley after return.
+
+## Firebase
+
+Android application identity is:
+
+`com.hh.smart_mart`
+
+Firebase project configured in `lib/core/firebase_options.dart`:
+
+`smart-mart-82a7a`
+
+Anonymous Authentication must be enabled in Firebase Authentication.
+
+This app intentionally initializes Firebase with explicit Android `FirebaseOptions`. It does not depend on the Google Services Gradle task, so the previous `processReleaseGoogleServices` package mismatch cannot block the build.
+
+## Backend
+
+The app talks only to the Next.js backend route:
+
+`POST /api/customer/action`
+
+The backend verifies the Firebase ID token and performs Firestore transactions server-side. The mobile app never writes product prices, order totals, trolley state, or payments directly into Firestore.
+
+## GitHub Actions APK build
+
+Create one repository secret:
+
+`API_BASE_URL`
+
+Value example:
+
+`https://your-smark-mart.vercel.app`
+
+Then open:
+
+**GitHub → Actions → Build Flutter Android Release → Run workflow**
+
+The workflow generates the Android project with package `com.hh.smart_mart`, adds release Internet/Camera permissions, runs analysis + tests, creates the launcher icon, builds the release APK, and uploads `Smark-Mart-Android-Release` as an artifact.
+
+## Local build
+
+With Flutter installed:
+
 ```bash
-npm install
-cp .env.example .env
-npm start
+rm -rf android /tmp/smark_mart_flutter
+flutter create /tmp/smark_mart_flutter --platforms=android --org com.hh --project-name smart_mart
+cp -R /tmp/smark_mart_flutter/android ./android
+python3 scripts/prepare_android.py
+flutter pub get
+dart run flutter_launcher_icons
+flutter test
+flutter build apk --release --dart-define=API_BASE_URL=https://your-domain.vercel.app
 ```
 
-## GitHub Actions APK
-Push this project to GitHub and add repository Actions secrets matching `.env.example`. Run **Build Android APK**. The workflow generates the Android project and uploads the release APK artifact.
+## Important
 
-## Customer flow
-Scan trolley -> scan products -> adjust quantity -> checkout Cash/UPI/QR -> order status -> admin confirms -> dispatch.
+Do not commit service-account JSON or Firebase Admin private keys into this mobile repository. Firebase Admin credentials belong only to the Vercel/Next.js backend.
