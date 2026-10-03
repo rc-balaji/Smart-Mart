@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
+import '../models/cart_item.dart';
 import '../state/shop_controller.dart';
 import '../widgets/brand_header.dart';
 import '../widgets/status_chip.dart';
@@ -46,11 +47,14 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return Scaffold(
           body: SafeArea(
-            child: RefreshIndicator(
-              onRefresh: () async { await shop.refresh(); },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
-                children: [
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: RefreshIndicator(
+                  onRefresh: () async { await shop.refresh(); },
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
+                    children: [
                   BrandHeader(
                     trailing: IconButton.filledTonal(
                       tooltip: 'Refresh',
@@ -112,7 +116,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       _OrderCard(shop: shop),
                     ],
                   ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -207,26 +213,139 @@ class _CartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const Expanded(child: Text('Your cart', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))), Text('${shop.itemCount} items', style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700))]),
-      const SizedBox(height: 8),
+      Row(children: [
+        const Expanded(child: Text('Your cart', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: AppTheme.green.withValues(alpha: .08), borderRadius: BorderRadius.circular(20)),
+          child: Text('${shop.itemCount} ${shop.itemCount == 1 ? 'item' : 'items'}', style: const TextStyle(color: AppTheme.deepGreen, fontSize: 12, fontWeight: FontWeight.w800)),
+        ),
+      ]),
+      const SizedBox(height: 12),
       if (shop.data.cart.isEmpty)
         const Padding(padding: EdgeInsets.symmetric(vertical: 28), child: Center(child: Column(children: [Icon(Icons.shopping_basket_outlined, size: 40, color: AppTheme.muted), SizedBox(height: 8), Text('Your cart is empty', style: TextStyle(color: AppTheme.muted))])))
       else
-        ...shop.data.cart.map((item) => Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
-          Container(width: 46, height: 46, decoration: BoxDecoration(color: const Color(0xFFF2F4F7), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.inventory_2_outlined)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800)), if (item.pack.isNotEmpty) Text(item.pack, style: const TextStyle(fontSize: 12, color: AppTheme.muted)), Text('₹${item.unitPrice.toStringAsFixed(2)} each', style: const TextStyle(fontSize: 12, color: AppTheme.muted))])),
-          if (shop.cartEditable) Row(children: [
-            IconButton.filledTonal(onPressed: shop.loading ? null : () => shop.changeQty(item.cartItemId, item.qty - 1), icon: const Icon(Icons.remove_rounded, size: 18)),
-            SizedBox(width: 28, child: Text('${item.qty}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900))),
-            IconButton.filledTonal(onPressed: shop.loading ? null : () => shop.changeQty(item.cartItemId, item.qty + 1), icon: const Icon(Icons.add_rounded, size: 18)),
-          ]) else Text('×${item.qty}', style: const TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(width: 8),
-          SizedBox(width: 72, child: Text('₹${item.lineTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900))),
-        ]))),
+        ...shop.data.cart.map((item) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: _CartItemTile(
+            item: item,
+            editable: shop.cartEditable,
+            busy: shop.loading,
+            onDecrease: () => shop.changeQty(item.cartItemId, item.qty - 1),
+            onIncrease: () => shop.changeQty(item.cartItemId, item.qty + 1),
+          ),
+        )),
       if (shop.data.cart.isNotEmpty) ...[const Divider(height: 22), Row(children: [const Expanded(child: Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))), Text('₹${shop.data.total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900))])]
     ])));
   }
+}
+
+class _CartItemTile extends StatelessWidget {
+  const _CartItemTile({required this.item, required this.editable, required this.busy, required this.onDecrease, required this.onIncrease});
+
+  final CartItemModel item;
+  final bool editable;
+  final bool busy;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 280;
+      final productDetails = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, height: 1.2)),
+          if (item.pack.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(item.pack, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+          ],
+          if (!compact) ...[
+            const SizedBox(height: 4),
+            Text('₹${item.unitPrice.toStringAsFixed(2)} each', style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+          ],
+        ],
+      );
+      final unitPrice = Text('₹${item.unitPrice.toStringAsFixed(2)} each', style: const TextStyle(fontSize: 12, color: AppTheme.muted));
+      final lineTotal = Text('₹${item.lineTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900));
+      final quantity = editable
+          ? Row(mainAxisSize: MainAxisSize.min, children: [
+              _QuantityButton(icon: Icons.remove_rounded, label: 'Decrease quantity', busy: busy, onPressed: onDecrease),
+              SizedBox(width: 30, child: Text('${item.qty}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900))),
+              _QuantityButton(icon: Icons.add_rounded, label: 'Increase quantity', busy: busy, onPressed: onIncrease),
+            ])
+          : Text('Quantity: ${item.qty}', style: const TextStyle(fontWeight: FontWeight.w800));
+
+      return Container(
+        padding: EdgeInsets.all(compact ? 12 : 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFBFC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFEAECF0)),
+        ),
+        child: compact
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const _ProductIcon(compact: true),
+                  const SizedBox(width: 10),
+                  Expanded(child: productDetails),
+                ]),
+                const SizedBox(height: 10),
+                unitPrice,
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerRight, child: lineTotal),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: quantity),
+              ])
+            : Column(children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const _ProductIcon(compact: false),
+                  const SizedBox(width: 12),
+                  Expanded(child: productDetails),
+                  const SizedBox(width: 10),
+                  lineTotal,
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [unitPrice, const Spacer(), quantity]),
+              ]),
+      );
+    });
+  }
+}
+
+class _ProductIcon extends StatelessWidget {
+  const _ProductIcon({required this.compact});
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: compact ? 40 : 46,
+        height: compact ? 40 : 46,
+        decoration: BoxDecoration(color: AppTheme.green.withValues(alpha: .08), borderRadius: BorderRadius.circular(14)),
+        child: const Icon(Icons.inventory_2_outlined, color: AppTheme.deepGreen),
+      );
+}
+
+class _QuantityButton extends StatelessWidget {
+  const _QuantityButton({required this.icon, required this.label, required this.busy, required this.onPressed});
+  final IconData icon;
+  final String label;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 36,
+        height: 36,
+        child: IconButton.filledTonal(
+          tooltip: label,
+          onPressed: busy ? null : onPressed,
+          icon: Icon(icon, size: 18),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+        ),
+      );
 }
 
 class _CheckoutCard extends StatelessWidget {
@@ -243,7 +362,16 @@ class _CheckoutCard extends StatelessWidget {
       const Text('Checkout', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
       const SizedBox(height: 5), const Text('Select how you want to pay.', style: TextStyle(color: AppTheme.muted)),
       const SizedBox(height: 14),
-      Row(children: methods.map((m) => Expanded(child: Padding(padding: EdgeInsets.only(right: m.$1 == 'QR' ? 0 : 8), child: ChoiceChip(selected: selected == m.$1, onSelected: (_) => onSelected(m.$1), avatar: Icon(m.$2, size: 18), label: SizedBox(width: double.infinity, child: Text(m.$3, textAlign: TextAlign.center)))))).toList()),
+      Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: methods.map((m) => ChoiceChip(
+          selected: selected == m.$1,
+          onSelected: (_) => onSelected(m.$1),
+          avatar: Icon(m.$2, size: 18),
+          label: Text(m.$3),
+        )).toList(),
+      ),
       const SizedBox(height: 16),
       FilledButton(onPressed: busy ? null : onCheckout, child: Text('Proceed to Pay • ₹${total.toStringAsFixed(2)}')),
     ])));
