@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "android": {
-      "package": "com.laconfianza.smarkmart",
+      "package": "com.hh.smart_mart",
       "permissions": [
         "CAMERA"
       ],
