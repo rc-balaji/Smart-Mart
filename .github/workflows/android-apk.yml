@@ -1,26 +1,36 @@
 name: Build Android APK
+
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22.13
-          cache: npm
-      - uses: actions/setup-java@v4
+          node-version: '22.13.1'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Install dependencies
-        run: npm install
-      - name: Create env file
+        run: npm install --no-audit --no-fund
+
+      - name: Create Expo environment
+        shell: bash
         run: |
-          cat > .env <<EOF_ENV
+          cat > .env <<'EOF_ENV'
           EXPO_PUBLIC_API_BASE_URL=${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
           EXPO_PUBLIC_FIREBASE_API_KEY=${{ secrets.EXPO_PUBLIC_FIREBASE_API_KEY }}
           EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -29,12 +39,32 @@ jobs:
           EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           EXPO_PUBLIC_FIREBASE_APP_ID=${{ secrets.EXPO_PUBLIC_FIREBASE_APP_ID }}
           EOF_ENV
+
+      - name: Create google-services.json
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "GOOGLE_SERVICES_JSON secret is missing"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+          python -m json.tool google-services.json > /dev/null
+          echo "google-services.json created and validated"
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean --non-interactive
+
       - name: Build release APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: smark-mart-apk
           path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
