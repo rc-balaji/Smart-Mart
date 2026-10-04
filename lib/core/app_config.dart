@@ -1,7 +1,10 @@
 class AppConfig {
   static const appName = 'Smark Mart';
   static const packageName = 'com.hh.smart_mart';
-  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://smart-mart-v1.vercel.app',
+  );
 
   static bool get hasApiBaseUrl => apiBaseUrl.trim().isNotEmpty;
 

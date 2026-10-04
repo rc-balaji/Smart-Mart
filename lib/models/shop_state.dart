@@ -45,31 +45,54 @@ class OrderModel {
       );
 }
 
+class TrolleyReturnModel {
+  const TrolleyReturnModel({
+    required this.trolleyId,
+    required this.status,
+    required this.reasonCode,
+  });
+
+  final String trolleyId;
+  final String status;
+  final String reasonCode;
+
+  factory TrolleyReturnModel.fromJson(Map<String, dynamic> json) =>
+      TrolleyReturnModel(
+        trolleyId: '${json['trolleyId'] ?? ''}',
+        status: '${json['status'] ?? ''}',
+        reasonCode: '${json['reasonCode'] ?? ''}',
+      );
+}
+
 class ShopStateModel {
   const ShopStateModel({
     required this.session,
     required this.cart,
     required this.total,
     required this.order,
+    this.trolleyReturn,
   });
 
   final SessionModel? session;
   final List<CartItemModel> cart;
   final double total;
   final OrderModel? order;
+  final TrolleyReturnModel? trolleyReturn;
 
   factory ShopStateModel.empty() => const ShopStateModel(
         session: null,
         cart: [],
         total: 0,
         order: null,
+        trolleyReturn: null,
       );
 
   factory ShopStateModel.fromJson(Map<String, dynamic> json) {
     final rawCart = (json['cart'] as List?) ?? const [];
     return ShopStateModel(
       session: json['session'] is Map
-          ? SessionModel.fromJson(Map<String, dynamic>.from(json['session'] as Map))
+          ? SessionModel.fromJson(
+              Map<String, dynamic>.from(json['session'] as Map))
           : null,
       cart: rawCart
           .whereType<Map>()
@@ -78,6 +101,10 @@ class ShopStateModel {
       total: (json['total'] as num?)?.toDouble() ?? 0,
       order: json['order'] is Map
           ? OrderModel.fromJson(Map<String, dynamic>.from(json['order'] as Map))
+          : null,
+      trolleyReturn: json['trolleyReturn'] is Map
+          ? TrolleyReturnModel.fromJson(
+              Map<String, dynamic>.from(json['trolleyReturn'] as Map))
           : null,
     );
   }
