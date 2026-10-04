@@ -5,6 +5,7 @@ import '../models/cart_item.dart';
 import '../models/shop_state.dart';
 import '../state/shop_controller.dart';
 import '../widgets/brand_header.dart';
+import '../widgets/cart_checkout_bar.dart';
 import '../widgets/status_chip.dart';
 import 'scanner_screen.dart';
 
@@ -494,61 +495,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     bottomNavigationBar: shop.hasSession
                         ? SafeArea(
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border(
-                                      top: BorderSide(
-                                          color: Color(0xFFE5E7EB)))),
-                              padding:
-                                  const EdgeInsets.fromLTRB(18, 10, 18, 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          '${shop.itemCount} item${shop.itemCount == 1 ? '' : 's'}',
-                                          style: const TextStyle(
-                                              color: AppTheme.muted,
-                                              fontWeight: FontWeight.w700),
-                                        ),
-                                        Text(
-                                          shop.pendingProductCount > 0
-                                              ? 'Updating total…'
-                                              : '₹${shop.data.total.toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                              fontSize: 21,
-                                              fontWeight: FontWeight.w900,
-                                              color: AppTheme.ink),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (shop.cartEditable &&
-                                      shop.data.cart.isNotEmpty)
-                                    FilledButton.icon(
-                                      onPressed: shop.loading ||
-                                              shop.refreshing ||
-                                              _paymentSubmitting
-                                          ? null
-                                          : _paymentMinimized
-                                              ? () => _openPaymentSheet(shop)
-                                              : () => _confirmCart(shop),
-                                      icon: Icon(
-                                        _paymentMinimized
-                                            ? Icons.payment_rounded
-                                            : Icons.fact_check_rounded,
-                                      ),
-                                      label: Text(_paymentMinimized
-                                          ? 'Continue payment'
-                                          : 'Confirm cart'),
-                                    ),
-                                ],
-                              ),
+                            child: CartCheckoutBar(
+                              itemCount: shop.itemCount,
+                              totalLabel: shop.pendingProductCount > 0
+                                  ? 'Updating total…'
+                                  : '₹${shop.data.total.toStringAsFixed(2)}',
+                              showCheckout: shop.cartEditable &&
+                                  shop.data.cart.isNotEmpty,
+                              continuePayment: _paymentMinimized,
+                              busy: shop.loading ||
+                                  shop.refreshing ||
+                                  _paymentSubmitting,
+                              onCheckout: () => _paymentMinimized
+                                  ? _openPaymentSheet(shop)
+                                  : _confirmCart(shop),
                             ),
                           )
                         : null,
@@ -767,28 +727,40 @@ class _SessionCard extends StatelessWidget {
             ),
             if (shop.cartEditable) ...[
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : onSwitch,
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                      label: const Text('Change trolley'),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 360;
+                  final changeButton = OutlinedButton.icon(
+                    onPressed: busy ? null : onSwitch,
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    label: const Text('Change trolley'),
+                  );
+                  final cancelButton = TextButton.icon(
+                    onPressed: busy ? null : onCancel,
+                    icon: const Icon(Icons.close_rounded,
+                        color: Color(0xFFB42318)),
+                    label: const Text(
+                      'Cancel shopping',
+                      style: TextStyle(color: Color(0xFFB42318)),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: busy ? null : onCancel,
-                      icon: const Icon(Icons.close_rounded,
-                          color: Color(0xFFB42318)),
-                      label: const Text(
-                        'Cancel shopping',
-                        style: TextStyle(color: Color(0xFFB42318)),
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                  return narrow
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            changeButton,
+                            const SizedBox(height: 6),
+                            cancelButton,
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: changeButton),
+                            const SizedBox(width: 10),
+                            Expanded(child: cancelButton),
+                          ],
+                        );
+                },
               ),
             ],
           ],
